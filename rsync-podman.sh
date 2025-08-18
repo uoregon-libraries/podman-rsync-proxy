@@ -34,8 +34,8 @@ shift
 
 # Ensure the path doesn't contain components that could be used for traversal
 if [[ "$pod_subdir" =~ \.\. || "$pod_subdir" =~ ^/ ]]; then
-    echo 'Error: invalid project subdir "'$pod_subdir'": disallowed characters.' >&2
-    exit 1
+  echo 'Error: invalid project subdir "'$pod_subdir'": disallowed characters.' >&2
+  exit 1
 fi
 
 project_path="$PROJECT_ROOT/$pod_subdir"
@@ -45,16 +45,16 @@ real_project_path=$(realpath "$project_path")
 real_root_path=$(realpath "$PROJECT_ROOT")
 
 if [[ "$real_project_path" != "$real_root_path/"* || "$real_project_path" == "$real_root_path" ]]; then
-    echo 'Error: project path is outside of the allowed root directory.' >&2
-    exit 1
+  echo 'Error: project path is outside of the allowed root directory.' >&2
+  exit 1
 fi
 
 
 # If there's no compose file we probably shouldn't do anything
 compose_file="${project_path}/compose.yml"
 if [[ ! -f "$compose_file" ]]; then
-    echo 'Error: compose.yml file not found at "'$compose_file'".' >&2
-    exit 1
+  echo 'Error: compose.yml file not found at "'$compose_file'".' >&2
+  exit 1
 fi
 
 echo '--- Starting "'$service'" service...' >&2
@@ -64,8 +64,8 @@ podman-compose up -d --force-recreate "$service"
 # Find the full container name, since compose adds prefixes
 CONTAINER_ID=$(podman-compose ps -q "$service")
 if [[ -z "$CONTAINER_ID" ]]; then
-    echo 'Error: could not find running container for service "'$service'".' >&2
-    exit 1
+  echo 'Error: could not find running container for service "'$service'".' >&2
+  exit 1
 fi
 container_name=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
 echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
@@ -73,16 +73,16 @@ echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
 # Kick off the container's rsync "listener". The first argument from the rsync
 # client MUST be "rsync". If it's not, bail.
 if [[ "$1" != "rsync" ]]; then
-    echo "Error: this script is only a proxy for the 'rsync' command." >&2
-    exit 1
+  echo "Error: this script is only a proxy for the 'rsync' command." >&2
+  exit 1
 fi
 
 # Check for any potentially dangerous characters
 for arg in "$@"; do
-    if [[ "$arg" =~ [;\&\|\$\`\(\)\{\}\<\>] ]]; then
-        echo "Error: disallowed characters detected in rsync arguments." >&2
-        exit 1
-    fi
+  if [[ "$arg" =~ [;\&\|\$\`\(\)\{\}\<\>] ]]; then
+    echo "Error: disallowed characters detected in rsync arguments." >&2
+    exit 1
+  fi
 done
 
 exec /usr/bin/podman exec -i "$container_name" "$@"
