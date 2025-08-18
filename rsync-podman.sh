@@ -4,17 +4,23 @@
 # project, run it, and then end it and remove the container.
 set -euo pipefail
 
+# Hard-code the service name so that even if other security measures fail, it's
+# very unlikely somebody could do anything malicious (most projects won't have
+# a service by this name).
+service="rsync-proxy"
+
 # On exit we run this to ensure that the rsync container exits
 cleanup() {
-  echo '--- Rsync complete: shutting down "rsync-proxy" service...' >&2
+  echo '--- Rsync complete: shutting down "'$service'" service...' >&2
   cd "$project_path"
-  podman-compose stop rsync-proxy
-  podman-compose rm rsync-proxy
+  podman-compose stop $service
+  podman-compose rm $service
   echo '--- Shutdown complete' >&2
 }
 trap cleanup EXIT
 
-# Ensure project path and service name were provided
+# Project path is required. Other args are arguably necessary, but without them
+# the container just won't start rsync.
 if [[ "$#" -lt 1 ]]; then
   echo "Usage: $0 <project_path> [rsync_args...]" >&2
   exit 1
@@ -33,18 +39,18 @@ if [[ ! -f "$compose_file" ]]; then
     exit 1
 fi
 
-echo '--- Starting "rsync-proxy" service...' >&2
+echo '--- Starting "'$service'" service...' >&2
 cd "$project_path"
-podman-compose up -d --force-recreate "rsync-proxy"
+podman-compose up -d --force-recreate "$service"
 
 # Find the full container name, since compose adds prefixes
-CONTAINER_ID=$(podman-compose ps -q "rsync-proxy")
+CONTAINER_ID=$(podman-compose ps -q "$service")
 if [[ -z "$CONTAINER_ID" ]]; then
-    echo "Error: Could not find running container for service 'rsync-proxy'." >&2
+    echo 'Error: Could not find running container for service "'$service'".' >&2
     exit 1
 fi
-CONTAINER_NAME=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
-echo "--- Container '$CONTAINER_NAME' is running. Starting rsync proxy." >&2
+container_name=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
+echo "--- Container '$container_name' is running. Starting rsync proxy." >&2
 
 # Kick off the container's rsync "listener"
-exec /usr/bin/podman exec -i "$CONTAINER_NAME" "$@"
+exec /usr/bin/podman exec -i "$container_name" "rsync -av $@"
