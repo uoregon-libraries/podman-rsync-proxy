@@ -45,7 +45,7 @@ real_project_path=$(realpath "$project_path")
 real_root_path=$(realpath "$PROJECT_ROOT")
 
 if [[ "$real_project_path" != "$real_root_path/"* || "$real_project_path" == "$real_root_path" ]]; then
-    echo 'Error: Project path is outside of the allowed root directory.' >&2
+    echo 'Error: project path is outside of the allowed root directory.' >&2
     exit 1
 fi
 
@@ -53,7 +53,7 @@ fi
 # If there's no compose file we probably shouldn't do anything
 compose_file="${project_path}/compose.yml"
 if [[ ! -f "$compose_file" ]]; then
-    echo "Error: Compose file not found at '$compose_file'." >&2
+    echo 'Error: compose.yml file not found at "'$compose_file'".' >&2
     exit 1
 fi
 
@@ -64,11 +64,11 @@ podman-compose up -d --force-recreate "$service"
 # Find the full container name, since compose adds prefixes
 CONTAINER_ID=$(podman-compose ps -q "$service")
 if [[ -z "$CONTAINER_ID" ]]; then
-    echo 'Error: Could not find running container for service "'$service'".' >&2
+    echo 'Error: could not find running container for service "'$service'".' >&2
     exit 1
 fi
 container_name=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
-echo "--- Container '$container_name' is running. Starting rsync proxy." >&2
+echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
 
 # Kick off the container's rsync "listener"
 exec /usr/bin/podman exec -i "$container_name" "rsync -av $@"
