@@ -70,5 +70,19 @@ fi
 container_name=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
 echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
 
-# Kick off the container's rsync "listener"
-exec /usr/bin/podman exec -i "$container_name" "rsync -av $@"
+# Kick off the container's rsync "listener". The first argument from the rsync
+# client MUST be "rsync". If it's not, bail.
+if [[ "$1" != "rsync" ]]; then
+    echo "Error: this script is only a proxy for the 'rsync' command." >&2
+    exit 1
+fi
+
+# Check for any potentially dangerous characters
+for arg in "$@"; do
+    if [[ "$arg" =~ [;\&\|\$\`\(\)\{\}\<\>] ]]; then
+        echo "Error: disallowed characters detected in rsync arguments." >&2
+        exit 1
+    fi
+done
+
+exec /usr/bin/podman exec -i "$container_name" "$@"
