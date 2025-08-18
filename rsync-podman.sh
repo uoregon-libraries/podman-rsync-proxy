@@ -4,10 +4,15 @@
 # project, run it, and then end it and remove the container.
 set -euo pipefail
 
+# Source config file if it exists
+if [[ -f /etc/default/rsync-podman ]]; then
+  . /etc/default/rsync-podman
+fi
+
 # Hard-code the service name so that even if other security measures fail, it's
 # very unlikely somebody could do anything malicious (most projects won't have
 # a service by this name).
-service="rsync-proxy"
+service="${RSYNC_SERVICE_NAME:-rsync-proxy}"
 
 # On exit we run this to ensure that the rsync container exits
 cleanup() {
@@ -28,7 +33,7 @@ fi
 
 # Define the dir that contains all the compose projects so callers aren't
 # passing in the full path
-PROJECT_ROOT="${PROJECT_ROOT:-/opt/podman-apps}"
+project_root="${RSYNC_PROJECT_ROOT:-/opt/podman-apps}"
 pod_subdir="$1"
 shift
 
@@ -38,11 +43,11 @@ if [[ "$pod_subdir" =~ \.\. || "$pod_subdir" =~ ^/ ]]; then
   exit 1
 fi
 
-project_path="$PROJECT_ROOT/$pod_subdir"
+project_path="$project_root/$pod_subdir"
 
 # After constructing, resolve the real path and check if it's within the root
 real_project_path=$(realpath "$project_path")
-real_root_path=$(realpath "$PROJECT_ROOT")
+real_root_path=$(realpath "$project_root")
 
 if [[ "$real_project_path" != "$real_root_path/"* || "$real_project_path" == "$real_root_path" ]]; then
   echo 'Error: project path is outside of the allowed root directory.' >&2
@@ -62,12 +67,12 @@ cd "$project_path"
 podman-compose up -d --force-recreate "$service"
 
 # Find the full container name, since compose adds prefixes
-CONTAINER_ID=$(podman-compose ps -q "$service")
-if [[ -z "$CONTAINER_ID" ]]; then
+container_id=$(podman-compose ps -q "$service")
+if [[ -z "$container_id" ]]; then
   echo 'Error: could not find running container for service "'$service'".' >&2
   exit 1
 fi
-container_name=$(podman inspect --format '{{.Name}}' "$CONTAINER_ID")
+container_name=$(podman inspect --format '{{.Name}}' "$container_id")
 echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
 
 # Kick off the container's rsync "listener". The first argument from the rsync
