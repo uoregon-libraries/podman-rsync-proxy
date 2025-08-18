@@ -29,8 +29,26 @@ fi
 # Define the dir that contains all the compose projects so callers aren't
 # passing in the full path
 PROJECT_ROOT="${PROJECT_ROOT:-/opt/podman-apps}"
-project_path="$PROJECT_ROOT/$1"
+pod_subdir="$1"
 shift
+
+# Ensure the path doesn't contain components that could be used for traversal
+if [[ "$pod_subdir" =~ \.\. || "$pod_subdir" =~ ^/ ]]; then
+    echo 'Error: invalid project subdir "'$pod_subdir'": disallowed characters.' >&2
+    exit 1
+fi
+
+project_path="$PROJECT_ROOT/$pod_subdir"
+
+# After constructing, resolve the real path and check if it's within the root
+real_project_path=$(realpath "$project_path")
+real_root_path=$(realpath "$PROJECT_ROOT")
+
+if [[ "$real_project_path" != "$real_root_path/"* || "$real_project_path" == "$real_root_path" ]]; then
+    echo 'Error: Project path is outside of the allowed root directory.' >&2
+    exit 1
+fi
+
 
 # If there's no compose file we probably shouldn't do anything
 compose_file="${project_path}/compose.yml"
