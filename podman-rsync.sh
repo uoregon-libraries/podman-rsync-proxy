@@ -14,13 +14,17 @@ fi
 # a service by this name).
 service="${RSYNC_SERVICE_NAME:-rsync-proxy}"
 
+# Set a flag so we only clean up the project if there's a need
+dirty=0
+
 # On exit we run this to ensure that the rsync container exits
 cleanup() {
-  echo '--- Rsync complete: shutting down "'$service'" service...' >&2
-  cd "$project_path"
-  podman-compose stop $service
-  podman-compose rm $service
-  echo '--- Shutdown complete' >&2
+  if [[ $dirty != 0 ]]; then
+    echo '--- Rsync complete: shutting down "'$service'" service...' >&2
+    cd "$project_path"
+    podman-compose stop $service
+    echo '--- Shutdown complete' >&2
+  fi
 }
 trap cleanup EXIT
 
@@ -54,7 +58,6 @@ if [[ "$real_project_path" != "$real_root_path/"* || "$real_project_path" == "$r
   exit 1
 fi
 
-
 # If there's no compose file we probably shouldn't do anything
 compose_file="${project_path}/compose.yml"
 if [[ ! -f "$compose_file" ]]; then
@@ -64,30 +67,17 @@ fi
 
 echo '--- Starting "'$service'" service...' >&2
 cd "$project_path"
+dirty=1
 podman-compose up -d --force-recreate "$service"
-
-# Find the full container name, since compose adds prefixes
-container_id=$(podman-compose ps -q "$service")
-if [[ -z "$container_id" ]]; then
-  echo 'Error: could not find running container for service "'$service'".' >&2
-  exit 1
-fi
-container_name=$(podman inspect --format '{{.Name}}' "$container_id")
-echo '--- Container "'$container_name'" is running. Starting rsync proxy.' >&2
-
-# Kick off the container's rsync "listener". The first argument from the rsync
-# client MUST be "rsync". If it's not, bail.
-if [[ "$1" != "rsync" ]]; then
-  echo "Error: this script is only a proxy for the 'rsync' command." >&2
-  exit 1
-fi
 
 # Check for any potentially dangerous characters
 for arg in "$@"; do
-  if [[ "$arg" =~ [;\&\|\$\`\(\)\{\}\<\>] ]]; then
+  if [[ "$arg" =~ '[;\&\|\$\`\(\)\{\}\<\>]' ]]; then
     echo "Error: disallowed characters detected in rsync arguments." >&2
     exit 1
   fi
 done
 
-exec /usr/bin/podman exec -i "$container_name" "$@"
+set -- "rsync" "$@"
+echo "--- Running service \"$service\" with arguments [$@]"
+exec podman-compose exec "$service" "$@"
