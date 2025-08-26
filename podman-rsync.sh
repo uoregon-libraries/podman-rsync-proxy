@@ -5,8 +5,8 @@
 set -euo pipefail
 
 # Source config file if it exists
-if [[ -f /etc/default/rsync-podman ]]; then
-  . /etc/default/rsync-podman
+if [[ -f /etc/default/podman-rsync ]]; then
+  . /etc/default/podman-rsync
 fi
 
 # Hard-code the service name so that even if other security measures fail, it's

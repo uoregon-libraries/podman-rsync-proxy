@@ -1,4 +1,4 @@
-# `rsync` proxy
+# Podman rsync proxy
 
 This repo will hold a simple setup for proxying `rsync` through podman on a
 highly secure server:
@@ -38,7 +38,7 @@ something like this added:
 
 ```yaml
   rsync-proxy:
-    image: uoregon-libraries/rsync-podman-proxy
+    image: uoregon-libraries/podman-rsync-proxy
     volumes:
     - vol1:/mnt/vol1:ro
     - vol2:/mnt/vol2:ro
@@ -49,26 +49,26 @@ By default, the service name in your compose file must be `rsync-proxy`. This
 can be overridden via a podman-host-side configuration file, explained in the
 script setup section below.
 
-### `rsync-podman.sh` Setup
+### `podman-rsync.sh` Setup
 
-The `rsync-podman.sh` script is a wrapper that secures and automates the
+The `podman-rsync.sh` script is a wrapper that secures and automates the
 process of running the rsync container.
 
 #### Installation
 
-Copy `rsync-podman.sh` to a location on your podman host, such as
+Copy `podman-rsync.sh` to a location on your podman host, such as
 `/usr/local/bin`. Then set ownership and permissions to restrict its use. It
 should be set up so that nobody can edit it except root, and nobody can read or
 execute it except `sir_podman`, e.g.:
 
 ```bash
-chown sir_podman /usr/local/bin/rsync-podman.sh
-chmod 500 /usr/local/bin/rsync-podman.sh
+chown sir_podman /usr/local/bin/podman-rsync.sh
+chmod 500 /usr/local/bin/podman-rsync.sh
 ```
 
 #### Configuration (Optional)
 
-You can create a file at `/etc/default/rsync-podman` to override default
+You can create a file at `/etc/default/podman-rsync` to override default
 settings in the script. There are currently two variables in use:
 
 - `RSYNC_SERVICE_NAME`: The name of the service in your `compose.yml` file.
@@ -89,7 +89,7 @@ run, and only as `sir_podman`.
 For example, you might create `/etc/sudoers.d/rsync-proxy` like this:
 
 ```
-Cmnd_Alias RSYNC_PROXY = /usr/local/bin/rsync-podman.sh
+Cmnd_Alias RSYNC_PROXY = /usr/local/bin/podman-rsync.sh
 User_Alias RSYNC_USERS = jechols, alovelace, cdarwin
 RSYNC_USERS ALL=(sir_podman) NOPASSWD: RSYNC_PROXY
 ```
@@ -107,7 +107,7 @@ export container_path="<path to volumes *inside* the container>"
 export local_path="<path where the mirrored data should live locally>"
 
 rsync -avz --stats --progress \
-  --rsh="ssh $dev@$pod_host sudo -u sir_podman /usr/local/bin/rsync-podman.sh $pod_subdir" \
+  --rsh="ssh $dev@$pod_host sudo -u sir_podman /usr/local/bin/podman-rsync.sh $pod_subdir" \
   ":$container_path/" $local_path/
 ```
 
