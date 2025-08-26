@@ -19,6 +19,11 @@ For simpler instructions, we're pretending your podman user is `sir_podman`.
 Clone this repo on your production server, then build the image:
 
 ```bash
+# Switch to sir_podman to build this image since podman images are per-user in
+# rootless mode
+sudo su - sir_podman
+
+cd ~/
 git clone https://github.com/uoregon-libraries/podman-rsync-proxy.git
 cd podman-rsync-proxy
 podman build -t uoregon-libraries/podman-rsync-proxy .
