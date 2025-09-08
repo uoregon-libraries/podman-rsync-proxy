@@ -31,7 +31,7 @@ cleanup() {
   if [[ $dirty != 0 ]]; then
     log '--- Rsync complete: shutting down "'$service'" service...'
     cd "$project_path"
-    podman-compose stop $service >/dev/null
+    podman-compose kill $service >/dev/null
     log '--- Shutdown complete'
   fi
 }
