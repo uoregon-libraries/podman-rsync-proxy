@@ -20,13 +20,21 @@ dirty=0
 # On exit we run this to ensure that the rsync container exits
 cleanup() {
   if [[ $dirty != 0 ]]; then
-    echo '--- Rsync complete: shutting down "'$service'" service...' >&2
+    log '--- Rsync complete: shutting down "'$service'" service...'
     cd "$project_path"
-    podman-compose stop $service
-    echo '--- Shutdown complete' >&2
+    podman-compose stop $service >/dev/null
+    log '--- Shutdown complete'
   fi
 }
 trap cleanup EXIT
+
+# Send all output to a log file if specified
+log_file="${RSYNC_LOG_FILE:-}"
+log() {
+  if [[ -n "$log_file" ]]; then
+    echo "$@" >> "$log_file"
+  fi
+}
 
 # Project path is required. Other args are arguably necessary, but without them
 # the container just won't start rsync.
@@ -65,11 +73,6 @@ if [[ ! -f "$compose_file" ]]; then
   exit 1
 fi
 
-echo '--- Starting "'$service'" service...' >&2
-cd "$project_path"
-dirty=1
-podman-compose up -d --force-recreate "$service"
-
 # Check for any potentially dangerous characters
 for arg in "$@"; do
   if [[ "$arg" =~ '[;\&\|\$\`\(\)\{\}\<\>]' ]]; then
@@ -78,6 +81,11 @@ for arg in "$@"; do
   fi
 done
 
+log '--- Starting "'$service'" service...'
+cd "$project_path"
+dirty=1
+podman-compose up -d --force-recreate "$service" >/dev/null
+
 set -- "rsync" "$@"
-echo "--- Running service \"$service\" with arguments [$@]"
-exec podman-compose exec "$service" "$@"
+log "--- Running service \"$service\" with arguments [$@]"
+podman-compose exec "$service" "$@"
