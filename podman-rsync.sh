@@ -76,5 +76,5 @@ cd "$project_path"
 
 set -- "rsync" "$@"
 log "--- Running service \"$service\" with arguments [$@]"
-podman-compose run --rm "$service" "$@"
+podman-compose run --rm -T "$service" "$@"
 log "--- Done"
