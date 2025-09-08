@@ -26,17 +26,6 @@ log() {
 # Set a flag so we only clean up the project if there's a need
 dirty=0
 
-# On exit we run this to ensure that the rsync container exits
-cleanup() {
-  if [[ $dirty != 0 ]]; then
-    log '--- Rsync complete: shutting down "'$service'" service...'
-    cd "$project_path"
-    podman-compose kill $service >/dev/null
-    log '--- Shutdown complete'
-  fi
-}
-trap cleanup EXIT
-
 # Project path is required. Other args are arguably necessary, but without them
 # the container just won't start rsync.
 if [[ "$#" -lt 1 ]]; then
@@ -82,11 +71,7 @@ for arg in "$@"; do
   fi
 done
 
-log '--- Starting "'$service'" service...'
-cd "$project_path"
-dirty=1
-podman-compose up -d --force-recreate "$service" >/dev/null
-
 set -- "rsync" "$@"
 log "--- Running service \"$service\" with arguments [$@]"
-podman-compose exec "$service" "$@"
+podman-compose run --rm "$service" "$@"
+log "--- Done"
