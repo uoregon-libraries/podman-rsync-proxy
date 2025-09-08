@@ -32,7 +32,8 @@ trap cleanup EXIT
 log_file="${RSYNC_LOG_FILE:-}"
 log() {
   if [[ -n "$log_file" ]]; then
-    echo "$@" >> "$log_file"
+    dt=$(date +"%Y-%m-%dT%H:%M:%S%z")
+    echo "[$dt]" "$@" >> "$log_file"
   fi
 }
 
