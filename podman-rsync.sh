@@ -74,7 +74,6 @@ done
 log '--- Switching to dir "'$project_path'"...'
 cd "$project_path"
 
-set -- "rsync" "$@"
 log "--- Running service \"$service\" with arguments [$@]"
 podman-compose run --rm -T "$service" "$@"
 log "--- Done"
