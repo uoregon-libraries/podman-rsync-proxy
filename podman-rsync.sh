@@ -14,6 +14,15 @@ fi
 # a service by this name).
 service="${RSYNC_SERVICE_NAME:-rsync-proxy}"
 
+# Send all output to a log file if specified
+log_file="${RSYNC_LOG_FILE:-}"
+log() {
+  if [[ -n "$log_file" ]]; then
+    dt=$(date +"%Y-%m-%dT%H:%M:%S%z")
+    echo "[$dt]" "$@" >> "$log_file"
+  fi
+}
+
 # Set a flag so we only clean up the project if there's a need
 dirty=0
 
@@ -27,15 +36,6 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-
-# Send all output to a log file if specified
-log_file="${RSYNC_LOG_FILE:-}"
-log() {
-  if [[ -n "$log_file" ]]; then
-    dt=$(date +"%Y-%m-%dT%H:%M:%S%z")
-    echo "[$dt]" "$@" >> "$log_file"
-  fi
-}
 
 # Project path is required. Other args are arguably necessary, but without them
 # the container just won't start rsync.
