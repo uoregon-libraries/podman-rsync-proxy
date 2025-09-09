@@ -36,7 +36,7 @@ compose project as a new service, and potentially alter how you start the
 stack. If you're doing `podman compose up`, you need to change that to only
 start the necessary services so that the rsync service doesn't start up
 automatically (though if it does, it isn't the end of the world: the service
-never runs longer than 10 hours as an extra security measure).
+will just exit immediately).
 
 Your compose definition (`compose.yml` or `compose.override.yml`) would get
 something like this added:
@@ -74,17 +74,20 @@ chmod 500 /usr/local/bin/podman-rsync.sh
 #### Configuration (Optional)
 
 You can create a file at `/etc/default/podman-rsync` to override default
-settings in the script. There are currently two variables in use:
+settings in the script. These variables are currently available:
 
 - `RSYNC_SERVICE_NAME`: The name of the service in your `compose.yml` file.
   Defaults to `rsync-proxy`.
 - `RSYNC_PROJECT_ROOT`: The base directory where your podman compose projects
   are located. Defaults to `/opt/podman-apps`.
+- `RSYNC_LOG_FILE`: A full path to a log file if you want high-level
+  information telling you when certain pieces of the script were executed. If
+  left empty, no logs will be created.
 
 ### Set up sudoers
 
 To allow developers to use the above script as rsync's `rsh` value, they have
-to be able to sudo to `sir_podman` and execute the script *without* having to
+to be able to execute the script as `sir_podman` *without* having to
 authenticate. This requires a carefully constructed rule in `/etc/sudoers.d`.
 
 **Warning:** This is the most security-sensitive step. The rule must be as
@@ -101,7 +104,7 @@ RSYNC_USERS ALL=(sir_podman) NOPASSWD: RSYNC_PROXY
 
 ### Syncing your prod data
 
-Once everything is ready, you just need to tell `rsync` how to do the actually
+Once everything is ready, you just need to tell `rsync` how to do the
 connection and transfer, like so:
 
 ```bash
