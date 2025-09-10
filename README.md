@@ -122,10 +122,23 @@ rsync -avz --no-times --no-perms --stats --progress \
 Most flags can be customized to your liking. The only magic to be very careful
 with is the value of the `--rsh` flag.
 
-The variables are optional, you can just jam that stuff inline if desired;
-they're there more to document what the `rsync` command needs.
+You can run the rsync as root if you need to get permissions and times synced up, but only if you're copying from your podman host to your local system. The syntax is sort of weird, though, e.g.:
 
-**Note**: if you rsync back up to a service, you likely need to fix permissions
-inside the container! Getting a copy of files for local development has the
-same requirement, but usually you'll have an easier time changing permissions /
-ownership on a dev system.
+```bash
+sudo rsync -avz --stats --progress \
+  --rsh="sudo -u $dev ssh $dev@$pod_host sudo -u sir_podman /usr/local/bin/podman-rsync.sh $pod_subdir" \
+  ":$container_path/" $local_path/
+```
+
+This uses sudo on the rsync command to ensure rsync has the rights to change
+ownership and timestamps. It *also* uses sudo on the `ssh` command (in the
+`--rsh` flag) so that you're sshing in with whatever keys you'd normally use.
+
+**Note**: the bash variables (e.g., `$pod_host`) are optional. You can just jam
+that stuff inline if desired. They're there more to help document what's going
+on with the `rsync` command.
+
+**Note 2**: if you rsync back up to a service, you likely need to fix
+permissions inside the container! Getting a copy of files for local development
+has the same requirement, but usually you'll have an easier time changing
+permissions / ownership on a dev system.
