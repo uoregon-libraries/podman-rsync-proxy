@@ -124,3 +124,8 @@ with is the value of the `--rsh` flag.
 
 The variables are optional, you can just jam that stuff inline if desired;
 they're there more to document what the `rsync` command needs.
+
+**Note**: if you rsync back up to a service, you likely need to fix permissions
+inside the container! Getting a copy of files for local development has the
+same requirement, but usually you'll have an easier time changing permissions /
+ownership on a dev system.
