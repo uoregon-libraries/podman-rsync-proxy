@@ -114,10 +114,13 @@ export pod_subdir="<podman project subdir, relative to the server-configured pod
 export container_path="<path to volumes *inside* the container>"
 export local_path="<path where the mirrored data should live locally>"
 
-rsync -avz --stats --progress \
+rsync -avz --no-times --no-perms --stats --progress \
   --rsh="ssh $dev@$pod_host sudo -u sir_podman /usr/local/bin/podman-rsync.sh $pod_subdir" \
   ":$container_path/" $local_path/
 ```
+
+Most flags can be customized to your liking. The only magic to be very careful
+with is the value of the `--rsh` flag.
 
 The variables are optional, you can just jam that stuff inline if desired;
 they're there more to document what the `rsync` command needs.
