@@ -5,12 +5,12 @@
 set -euo pipefail
 
 # Source config file if it exists
-if [[ -f /etc/default/podman-mysqldump ]]; then
-  . /etc/default/podman-mysqldump
+if [[ -f /etc/default/podman-proxy ]]; then
+  . /etc/default/podman-proxy
 fi
 
 # Send all output to a log file if specified
-log_file="${MYSQLDUMP_LOG_FILE:-}"
+log_file="${PODMAN_PROXY_LOG_FILE:-}"
 log() {
   if [[ -n "$log_file" ]]; then
     dt=$(date +"%Y-%m-%dT%H:%M:%S%z")
@@ -26,7 +26,7 @@ fi
 
 # Define the dir that contains all the compose projects so callers aren't
 # passing in the full path
-project_root="${MYSQLDUMP_PROJECT_ROOT:-/opt/podman-apps}"
+project_root="${PODMAN_PROJECT_ROOT:-/opt/podman-apps}"
 pod_subdir="$1"
 service="$2"
 shift 2

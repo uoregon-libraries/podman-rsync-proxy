@@ -1,7 +1,7 @@
 # Podman rsync proxy
 
-This repo will hold a simple setup for proxying `rsync` through podman on a
-highly secure server:
+This repo will hold a simple setup for proxying `rsync` and `mysqldump` through
+podman on a highly secure server:
 
 - Podman runs as a single user in rootless mode.
 - The server doesn't allow sshing by the podman user; devs have to ssh in and
@@ -12,12 +12,20 @@ highly secure server:
 
 For simpler instructions, we're pretending your podman user is `sir_podman`.
 
-Note that we also have a sort of mysqldump proxy, see the instructions at the
-bottom of this page.
+You'll also have to install two scripts on the podman host: `podman-rsync.sh`,
+a wrapper that secures and automates the process of running the rsync
+container; and `podman-mysqldump.sh`, which does the same for running
+`mysqldump` inside any container.
 
 ## Setup
 
-### Build the podman image
+### The on-demand rsync container
+
+Proxying rsync requires a custom image and container to exist on any project
+you want to allow syncing files. You won't need this container running except
+when a request is coming in for an rsync call.
+
+#### Build the podman image
 
 Clone this repo on your production server, then build the image:
 
@@ -32,7 +40,7 @@ cd podman-rsync-proxy
 podman build -t uoregon-libraries/podman-rsync-proxy .
 ```
 
-### Configure your podman-compose project
+#### Configure your podman-compose project
 
 You'll need to add `uoregon-libraries/podman-rsync-proxy` to your podman
 compose project as a new service, and potentially alter how you start the
@@ -57,58 +65,62 @@ By default, the service name in your compose file must be `rsync-proxy`. This
 can be overridden via a podman-host-side configuration file, explained in the
 script setup section below.
 
-### `podman-rsync.sh` Setup
+### Common Setup
 
-The `podman-rsync.sh` script is a wrapper that secures and automates the
-process of running the rsync container.
+Both scripts have to be installed on the server somewhere so that a dev's
+`sudo` commands (through `ssh`) can use them to handle the command proxying.
 
 #### Installation
 
-Copy `podman-rsync.sh` to a location on your podman host, such as
-`/usr/local/bin`. Then set ownership and permissions to restrict its use. It
-should be set up so that nobody can edit it except root, and nobody can read or
-execute it except `sir_podman`, e.g.:
+Copy the two scripts to a location on your podman host, such as
+`/usr/local/bin`. Then set ownership and permissions to restrict their use.
+They should be set up so that nobody can edit them except root, and nobody can
+read or execute them except `sir_podman`, e.g.:
 
 ```bash
-chown sir_podman /usr/local/bin/podman-rsync.sh
-chmod 500 /usr/local/bin/podman-rsync.sh
+cd /usr/local/bin
+chown sir_podman podman-rsync.sh podman-mysqldump.sh
+chmod 500 podman-rsync.sh podman-mysqldump.sh
 ```
 
-#### Configuration (Optional)
+#### Configuration
 
-You can create a file at `/etc/default/podman-rsync` to override default
-settings in the script. These variables are currently available:
+You should create a file at `/etc/default/podman-proxy` to override default
+settings in the two scripts. These variables are currently available:
 
-- `RSYNC_SERVICE_NAME`: The name of the service in your `compose.yml` file.
-  Defaults to `rsync-proxy`.
-- `RSYNC_PROJECT_ROOT`: The base directory where your podman compose projects
+- `RSYNC_SERVICE_NAME`: The name of the rsync service in your `compose.yml`
+  file. Defaults to `rsync-proxy`. Not used for DB exporting.
+- `PODMAN_PROJECT_ROOT`: The base directory where your podman compose projects
   are located. Defaults to `/opt/podman-apps`.
-- `RSYNC_LOG_FILE`: A full path to a log file if you want high-level
-  information telling you when certain pieces of the script were executed. If
+- `PODMAN_PROXY_LOG_FILE`: A full path to a log file if you want high-level
+  information telling you when certain pieces of the scripts were executed. If
   left empty, no logs will be created.
 
 ### Set up sudoers
 
-To allow developers to use the above script as rsync's `rsh` value, they have
-to be able to execute the script as `sir_podman` *without* having to
-authenticate. This requires a carefully constructed rule in `/etc/sudoers.d`.
+To allow developers to use the above scripts, and especially the `rsync`'s
+`rsh` command, devs will need to be able to run them as `sir_podman` *without*
+having to authenticate. This requires a carefully constructed set of sudoer
+directives.
 
-**Warning:** This is the most security-sensitive step. The rule must be as
-restrictive as possible. It should only allow the specific rsync script to be
-run, and only as `sir_podman`.
+**Warning:** This is the most security-sensitive step. The file we're creating
+must set up rules that are as restrictive as possible. Only the specified
+scripts should be allowed to run passwordless, and only as `sir_podman`.
 
 For example, you might create `/etc/sudoers.d/rsync-proxy` like this:
 
 ```
 Cmnd_Alias RSYNC_PROXY = /usr/local/bin/podman-rsync.sh
-User_Alias RSYNC_USERS = jechols, alovelace, cdarwin
-RSYNC_USERS ALL=(sir_podman) NOPASSWD: RSYNC_PROXY
+Cmnd_Alias MYSQLDUMP_PROXY = /usr/local/bin/podman-mysqldump.sh
+User_Alias PODMAN_PROXY_USERS = jechols, alovelace, cdarwin
+PODMAN_PROXY_USERS ALL=(sir_podman) NOPASSWD: RSYNC_PROXY
+PODMAN_PROXY_USERS ALL=(sir_podman) NOPASSWD: MYSQLDUMP_PROXY
 ```
 
-### Syncing your prod data
+### Usage: rsync
 
-Once everything is ready, you just need to tell `rsync` how to do the
-connection and transfer, like so:
+Once everything above has been done, you just need to tell `rsync` how to do
+the connection and transfer, like so:
 
 ```bash
 export dev="<dev username>"
@@ -148,33 +160,9 @@ permissions inside the container! Getting a copy of files for local development
 has the same requirement, but usually you'll have an easier time changing
 permissions / ownership on a dev system.
 
-## `podman-mysqldump.sh`
+### Usage: mysqldump
 
-In addition to rsyncing files, it's often necessary to get a database dump.
-This project includes a `podman-mysqldump.sh` script for this purpose. `rsync`
-is not ideal for databases as tables can be altered mid-sync, leading to
-inconsistent data. A proper database dump tool like `mysqldump` ensures a
-consistent snapshot of the database.
-
-### Setup
-
-The setup for `podman-mysqldump.sh` is nearly identical to `podman-rsync.sh`:
-
-1. **Installation**: Copy the script to a secure location like
-   `/usr/local/bin`, and set ownership and permissions restrictively, just as
-   with the rsync script.
-2. **Configuration**: Create `/etc/default/podman-mysqldump` to override
-   default settings:
-   - `MYSQLDUMP_PROJECT_ROOT`: The base directory for your podman compose
-     projects. Defaults to `/opt/podman-apps`.
-   - `MYSQLDUMP_LOG_FILE`: Path to a log file for high-level script execution
-     information.
-3. **Sudoers**: Add a sudoers rule for `podman-mysqldump.sh` similar to the one
-   for `podman-rsync.sh`. It's critical this is also highly restrictive.
-
-### Usage
-
-You can execute `mysqldump` against a project's database container like this:
+Executing `mysqldump` against an arbitrary container is fairly easy:
 
 ```bash
 export dev="<dev username>"
@@ -188,5 +176,5 @@ ssh $dev@$pod_host sudo -u sir_podman \
 
 This command connects to the podman host, runs the `podman-mysqldump.sh` script
 to execute `mysqldump` in the specified container, and pipes the output to a
-local file. Any arguments passed after the service name (in this case,
-`--all-databases`) will be passed directly to the `mysqldump` command.
+local file. Any arguments passed after the service name will be passed directly
+to the `mysqldump` command.
