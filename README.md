@@ -12,6 +12,9 @@ highly secure server:
 
 For simpler instructions, we're pretending your podman user is `sir_podman`.
 
+Note that we also have a sort of mysqldump proxy, see the instructions at the
+bottom of this page.
+
 ## Setup
 
 ### Build the podman image
@@ -122,7 +125,9 @@ rsync -avz --no-times --no-perms --stats --progress \
 Most flags can be customized to your liking. The only magic to be very careful
 with is the value of the `--rsh` flag.
 
-You can run the rsync as root if you need to get permissions and times synced up, but only if you're copying from your podman host to your local system. The syntax is sort of weird, though, e.g.:
+You can run the rsync as root if you need to get permissions and times synced
+up, but only if you're copying from your podman host to your local system. The
+syntax is sort of weird, though, e.g.:
 
 ```bash
 sudo rsync -avz --stats --progress \
@@ -142,3 +147,46 @@ on with the `rsync` command.
 permissions inside the container! Getting a copy of files for local development
 has the same requirement, but usually you'll have an easier time changing
 permissions / ownership on a dev system.
+
+## `podman-mysqldump.sh`
+
+In addition to rsyncing files, it's often necessary to get a database dump.
+This project includes a `podman-mysqldump.sh` script for this purpose. `rsync`
+is not ideal for databases as tables can be altered mid-sync, leading to
+inconsistent data. A proper database dump tool like `mysqldump` ensures a
+consistent snapshot of the database.
+
+### Setup
+
+The setup for `podman-mysqldump.sh` is nearly identical to `podman-rsync.sh`:
+
+1. **Installation**: Copy the script to a secure location like
+   `/usr/local/bin`, and set ownership and permissions restrictively, just as
+   with the rsync script.
+2. **Configuration**: Create `/etc/default/podman-mysqldump` to override
+   default settings:
+   - `MYSQLDUMP_PROJECT_ROOT`: The base directory for your podman compose
+     projects. Defaults to `/opt/podman-apps`.
+   - `MYSQLDUMP_LOG_FILE`: Path to a log file for high-level script execution
+     information.
+3. **Sudoers**: Add a sudoers rule for `podman-mysqldump.sh` similar to the one
+   for `podman-rsync.sh`. It's critical this is also highly restrictive.
+
+### Usage
+
+You can execute `mysqldump` against a project's database container like this:
+
+```bash
+export dev="<dev username>"
+export pod_host="<podman host>"
+export pod_subdir="<podman project subdir, relative to the server-configured podman root>"
+export service="<name of the compose service for the database>"
+
+ssh $dev@$pod_host sudo -u sir_podman \
+    /usr/local/bin/podman-mysqldump.sh $pod_subdir $service --all-databases > all-dbs.sql
+```
+
+This command connects to the podman host, runs the `podman-mysqldump.sh` script
+to execute `mysqldump` in the specified container, and pipes the output to a
+local file. Any arguments passed after the service name (in this case,
+`--all-databases`) will be passed directly to the `mysqldump` command.
