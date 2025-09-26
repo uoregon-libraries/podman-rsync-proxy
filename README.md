@@ -1,7 +1,7 @@
 # Podman rsync proxy
 
-This repo will hold a simple setup for proxying `rsync` and `mysqldump` through
-podman on a highly secure server:
+This repo holds scripts to help proxy `rsync` and `mysqldump` through podman on
+a highly secure server:
 
 - Podman runs as a single user in rootless mode.
 - The server doesn't allow sshing by the podman user; devs have to ssh in and
