@@ -178,3 +178,12 @@ This command connects to the podman host, runs the `podman-mysqldump.sh` script
 to execute `mysqldump` in the specified container, and pipes the output to a
 local file. Any arguments passed after the service name will be passed directly
 to the `mysqldump` command.
+
+**Note**: for security purposes, your service *must* have environment variables
+`$MYSQL_USER` and `$MYSQL_PASSWORD`. The `mysqldump` command will be prefixed
+with the expected env vars. In the example above, the actual command that's
+executed in the container would look like this:
+
+```bash
+mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD --all-databases
+```

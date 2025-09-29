@@ -59,5 +59,5 @@ log '--- Switching to dir "'$project_path'"...'
 cd "$project_path"
 
 log "--- Running mysqldump in service \"$service\" with arguments [$*]"
-podman-compose exec -T "$service" mysqldump "$@"
+podman-compose exec -T "$service" bash -c 'mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD' "$@"
 log "--- Done"
