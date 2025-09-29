@@ -58,6 +58,26 @@ fi
 log '--- Switching to dir "'$project_path'"...'
 cd "$project_path"
 
+# This is very confusing, so here's a breakdown:
+#
+# - `podman-compose exec`: if this isn't obvious, stop reading.
+# - `-T`: disables a pseudo-TTY. It's probably necessary since we're doing a
+#   non-interactive command, and things break sometimes without it.
+# - `"$service"`: this is the target container, e.g., "db".
+#   command. The value comes from the second argument passed to the script.
+# - `bash -c '...'`: This is the command that gets executed inside the
+#   container. It tells the container to start a `bash` shell and execute the
+#   provided command string, which is necessary to properly quote the env vars
+#   that we want expanded in the container.
+# - `'mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD "$@"'`: This is what needs var
+#   expansion mentioned above. Since it's single-quoted, the variables (e.g.,
+#   `$MYSQL_USER`) are expanded inside the container, not the host.
+# - The first `"$@"` is replaced by the second `"$@"` because of bash magic I
+#   don't understand. But it seems to work.
+# - `bash`: AI told me to do this.
+# - The last `"$@"` expands to the actual args passed to this script, and the
+#   magic above passes these through to replace that first `$@` above because...
+#   more magic.
 log "--- Running mysqldump in service \"$service\" with arguments [$*]"
-podman-compose exec -T "$service" bash -c 'mysqldump -u\$MYSQL_USER -p\$MYSQL_PASSWORD' "$@"
+podman-compose exec -T "$service" bash -c 'mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD "$@"' bash "$@"
 log "--- Done"
